@@ -1,0 +1,69 @@
+# =====================================================================
+#  TabletPOS — one file for both Mac testing and Windows/Linux server
+#
+#  Mac (Apple Silicon):  SQL Server has no ARM image, so it runs under
+#  Rosetta emulation. Enable Docker Desktop → Settings → General →
+#  "Use Rosetta for x86_64/amd64 emulation on Apple Silicon" first.
+#
+#  Start everything:   docker compose up -d --build
+#  Open:               http://localhost:5000
+# =====================================================================
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64          # required on Apple Silicon; harmless elsewhere
+    container_name: tabletpos-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "YourStrong!Pass1"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: tabletpos-dbinit
+    depends_on:
+      mssql:
+        condition: service_healthy
+    volumes:
+      - ./database:/scripts:ro
+    entrypoint: >
+      /bin/bash -c "
+      SQL=/opt/mssql-tools18/bin/sqlcmd;
+      $$SQL -C -S mssql -U sa -P 'YourStrong!Pass1' -Q \"IF DB_ID('TabletPOS') IS NULL CREATE DATABASE TabletPOS\" &&
+      $$SQL -C -S mssql -U sa -P 'YourStrong!Pass1' -d TabletPOS -i /scripts/01_schema.sql -I &&
+      $$SQL -C -S mssql -U sa -P 'YourStrong!Pass1' -d TabletPOS -i /scripts/02_procedures.sql -I &&
+      $$SQL -C -S mssql -U sa -P 'YourStrong!Pass1' -d TabletPOS -i /scripts/03_seed.sql -I &&
+      echo 'Database ready.'"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tabletpos-api
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__Default: "Server=mssql,1433;Database=TabletPOS;User Id=sa;Password=YourStrong!Pass1;TrustServerCertificate=True;Encrypt=False;"
+      Jwt__Key: "CHANGE-THIS-TO-A-LONG-RANDOM-SECRET-AT-LEAST-32-CHARACTERS"
+      PrintAgent__BaseUrl: "http://host.docker.internal:5099"
+      ASPNETCORE_URLS: "http://0.0.0.0:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+volumes:
+  mssql-data:
