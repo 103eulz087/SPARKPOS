@@ -1,0 +1,114 @@
+{
+  "title": "Selling with no internet",
+  "summary": "When the internet drops, keep selling: sales print and wait on the device, and send by themselves when the internet is back.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "offline",
+      "caption": "Selling with no internet"
+    },
+    {
+      "say": "The internet drops: the status turns Offline"
+    },
+    {
+      "offline": true,
+      "wait": 1500
+    },
+    {
+      "shot": "offline",
+      "caption": "No internet: the status in the header says Offline. Keep selling as usual."
+    },
+    {
+      "say": "Keep selling. The invoice still prints."
+    },
+    {
+      "scan": "4800066120225",
+      "wait": 500
+    },
+    {
+      "scan": "4803925151163",
+      "wait": 500
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "200"
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 400
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 1800
+    },
+    {
+      "scan": "4800088115179",
+      "wait": 500,
+      "fast": true
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 400
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "50",
+      "fast": true
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 400
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 1800
+    },
+    {
+      "say": "The sales wait on this device"
+    },
+    {
+      "shot": "waiting",
+      "caption": "Two sales made offline: the header shows them waiting to send."
+    },
+    {
+      "say": "Even after a refresh or a restart, SparkPOS opens and the sales are still there"
+    },
+    {
+      "reload": true,
+      "wait": 2500
+    },
+    {
+      "shot": "after-refresh",
+      "caption": "Refreshed with no internet: SparkPOS opens from the device and the 2 sales are still waiting."
+    },
+    {
+      "say": "The internet is back: waiting sales send by themselves"
+    },
+    {
+      "offline": false,
+      "wait": 7000
+    },
+    {
+      "shot": "back-online",
+      "caption": "Back online: the waiting sales have been sent and the status says Online."
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "12-offline"
+}

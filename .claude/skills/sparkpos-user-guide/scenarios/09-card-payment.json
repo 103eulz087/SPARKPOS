@@ -1,0 +1,92 @@
+{
+  "title": "A card payment",
+  "summary": "Pay by card: the card details and the amount, then complete the sale.",
+  "steps": [
+    {
+      "scan": "4801981116072",
+      "wait": 500,
+      "fast": true
+    },
+    {
+      "scan": "3434350007476",
+      "wait": 500,
+      "fast": true
+    },
+    {
+      "video": "start",
+      "clip": "card-payment",
+      "caption": "A card payment"
+    },
+    {
+      "say": "Press PAY"
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 700
+    },
+    {
+      "say": "Press Add card"
+    },
+    {
+      "click": "Add card",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "say": "Type the card details from the terminal slip"
+    },
+    {
+      "fill": {
+        "label": "Card No."
+      },
+      "value": "4111"
+    },
+    {
+      "fill": {
+        "label": "Card Bank"
+      },
+      "value": "BDO"
+    },
+    {
+      "fill": {
+        "label": "Reference No."
+      },
+      "value": "004512"
+    },
+    {
+      "fill": {
+        "label": "Card Name"
+      },
+      "value": "VISA"
+    },
+    {
+      "shot": "card-details",
+      "caption": "The card details. The amount starts at the balance due; lower it to pay the rest in cash."
+    },
+    {
+      "say": "Press Add card payment"
+    },
+    {
+      "click": "Add card payment",
+      "exact": true,
+      "wait": 700
+    },
+    {
+      "shot": "card-added",
+      "caption": "The card payment added; nothing left to pay."
+    },
+    {
+      "say": "Press Complete sale. The invoice prints with the card payment."
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "09-card-payment"
+}

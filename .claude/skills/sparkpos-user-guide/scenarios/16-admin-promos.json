@@ -1,0 +1,121 @@
+{
+  "title": "Promos (Buy 1 Take 1) in Admin",
+  "summary": "Admin → Promos: set up a Buy N Take M promo with its items, dates and branches.",
+  "steps": [
+    {
+      "goto": "/login",
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Username"
+      },
+      "value": "$GUIDE_ADMIN_USER",
+      "fast": true
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_ADMIN_PASSWORD",
+      "fast": true
+    },
+    {
+      "click": "Sign in",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "select": {
+        "label": "Branch"
+      },
+      "value": "$GUIDE_BRANCH"
+    },
+    {
+      "click": "Continue",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "click": "Promos",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "shot": "admin-promos",
+      "caption": "Admin → Promos: each promo with its kind, items, branches, dates and whether it's running."
+    },
+    {
+      "video": "start",
+      "clip": "admin-promos",
+      "caption": "Adding a Buy 1 Take 1 promo"
+    },
+    {
+      "say": "Press Add promo"
+    },
+    {
+      "click": "Add promo",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "say": "Name it: the name prints on the invoice"
+    },
+    {
+      "fill": {
+        "label": "Name (prints on the invoice)"
+      },
+      "value": "B1T1 Sardines"
+    },
+    {
+      "say": "Same item, buy 1 take 1"
+    },
+    {
+      "click": "Same item",
+      "exact": true,
+      "wait": 400
+    },
+    {
+      "say": "Add the item that qualifies"
+    },
+    {
+      "fill": {
+        "placeholder": "Type an item name or code to add it"
+      },
+      "value": "555 SARDINES SPANISH",
+      "wait": 1500
+    },
+    {
+      "click": "555 SARDINES SPANISH 155G · 01588",
+      "wait": 600
+    },
+    {
+      "say": "Pick the branch (none = every branch)"
+    },
+    {
+      "click": "003 V3",
+      "exact": true,
+      "wait": 400
+    },
+    {
+      "shot": "admin-promo-form",
+      "caption": "B1T1 Sardines: same item, buy 1 take 1, at branch 003 (V3), from today."
+    },
+    {
+      "say": "Press Save"
+    },
+    {
+      "click": "Save",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "shot": "admin-promo-saved",
+      "caption": "The promo is Running. Tills pick it up at their next Cash Begin."
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "16-admin-promos"
+}

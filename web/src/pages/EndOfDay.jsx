@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, pendingCount, printText, syncPendingSales } from '../lib/api'
-import { useAuth, useCart, useShift } from '../lib/store'
-import { Btn, ErrorBar, Field, Input, Note, Paper, Spinner } from '../components/Ui'
+import { localDate, useAuth, useCart, useShift } from '../lib/store'
+import { Btn, ErrorBar, Field, Input, Note, Paper, Spinner, Wordmark } from '../components/Ui'
 
 /**
  * One End of Day screen for every path:
@@ -17,7 +17,7 @@ export default function EndOfDay() {
   const nav = useNavigate()
   const [params] = useSearchParams()
   const terminalId = Number(params.get('terminalId'))
-  const businessDate = params.get('businessDate') || new Date().toISOString().slice(0, 10)
+  const businessDate = params.get('businessDate') || localDate()
 
   const { branchCode, logout, role } = useAuth()
   const { clearShift } = useShift()
@@ -84,14 +84,14 @@ export default function EndOfDay() {
   if (result) return (
     <div className="min-h-screen p-6 overflow-auto">
       <div className="max-w-md mx-auto space-y-4">
-        <div className="bg-white rounded-2xl p-6 text-center space-y-2 shadow">
-          <svg className="mx-auto text-stone-700" width="40" height="40" viewBox="0 0 24 24" fill="none"
+        <div className="bg-panel rounded-2xl p-6 text-center space-y-2 border border-line">
+          <svg className="mx-auto text-fg2" width="40" height="40" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="4" y="11" width="16" height="10" rx="2" />
             <path d="M8 11V7a4 4 0 0 1 8 0v4" />
           </svg>
-          <h1 className="text-2xl font-bold">End of Day complete</h1>
-          <p className="text-stone-500 text-sm">
+          <h1 className="font-display text-2xl font-bold">End of Day complete</h1>
+          <p className="text-muted text-sm">
             Z# {result.zread.ZCounter} · {result.printed ? 'Printed' : 'Printer unreachable'} ·{' '}
             {result.emailed ? 'Emailed to administration' : 'Email not sent'}
           </p>
@@ -107,13 +107,16 @@ export default function EndOfDay() {
   if (!state && !error) return <div className="min-h-screen flex items-center justify-center"><Spinner /></div>
 
   const blocked = state?.dayState === 'eodDone'
+  const noShifts = state && state.openShifts === 0 && state.closedShifts === 0
+  const earlier = state?.unclosedDay?.businessDate
 
   return (
     <div className="min-h-screen p-6 overflow-auto">
       <div className="max-w-md mx-auto space-y-4">
+        <Wordmark className="text-xl" />
         <div>
-          <div className="text-[11px] tracking-[0.3em] uppercase text-stone-500">End of Day</div>
-          <h1 className="text-2xl font-bold">Close {branchCode} terminal for {businessDate}</h1>
+          <div className="text-[11px] tracking-[0.3em] uppercase text-muted">End of Day</div>
+          <h1 className="font-display text-2xl font-bold">Close {branchCode} terminal for {businessDate}</h1>
         </div>
 
         {blocked && (
@@ -124,7 +127,7 @@ export default function EndOfDay() {
         )}
 
         {state && !blocked && (
-          <div className="bg-white rounded-2xl p-5 shadow space-y-3 text-sm">
+          <div className="bg-panel rounded-2xl p-5 border border-line space-y-3 text-sm">
             <Row label="Open shifts" ok={state.openShifts === 0}
               value={state.openShifts === 0 ? 'none' : `${state.openShifts} still open`} />
             <Row label="Blind-closed shifts" ok value={`${state.closedShifts}`} />
@@ -132,6 +135,19 @@ export default function EndOfDay() {
               value={queued === 0 ? '0 pending' : `${queued} pending`} />
             <Row label="Last cashier" value={state.lastCashier || '—'} />
           </div>
+        )}
+
+        {state && !blocked && noShifts && (
+          <Note tone="red">
+            No shift was opened on this terminal for {businessDate}, so there is no day to close.
+          </Note>
+        )}
+
+        {state && !blocked && earlier && (
+          <Note tone="red">
+            {earlier} on this terminal was never closed. Close the days in order: run End of Day for{' '}
+            {earlier} first.
+          </Note>
         )}
 
         {state && !blocked && state.openShifts > 0 && (
@@ -143,15 +159,15 @@ export default function EndOfDay() {
 
         {!blocked && (
           <>
-            <div className="bg-white rounded-2xl p-5 shadow space-y-3">
+            <div className="bg-panel rounded-2xl p-5 border border-line space-y-3">
               <h2 className="font-bold">{needsOverride ? 'Supervisor authorization' : 'Close the day'}</h2>
               {needsOverride ? (
-                <p className="text-sm text-stone-500">
+                <p className="text-sm text-muted">
                   This branch requires a Supervisor or Admin credential to close the day. The approver,
                   timestamp and remarks are written to the audit log and printed on the Z-Read.
                 </p>
               ) : (
-                <p className="text-sm text-stone-500">
+                <p className="text-sm text-muted">
                   {isPrivileged
                     ? 'No separate credential needed — closing under your own account.'
                     : 'This branch does not require a supervisor override to close the day. Change this in Admin → POS Settings if that should be tightened.'}
@@ -189,7 +205,7 @@ export default function EndOfDay() {
           {!blocked && (
             <Btn variant="primary"
               disabled={busy || (needsOverride && (!approver.username || !approver.password)) ||
-                (state && state.openShifts > 0) || queued > 0}
+                (state && state.openShifts > 0) || noShifts || !!earlier || queued > 0}
               onClick={process}>
               {busy ? 'Closing…' : needsOverride ? 'Authorize and close day' : 'Close day'}
             </Btn>
@@ -201,9 +217,9 @@ export default function EndOfDay() {
 }
 
 const Row = ({ label, value, ok }) => (
-  <div className="flex justify-between border-b border-stone-100 pb-2 last:border-0">
+  <div className="flex justify-between border-b border-line pb-2 last:border-0">
     <span>{label}</span>
-    <span className={ok === undefined ? 'text-stone-500' : ok ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}>
+    <span className={ok === undefined ? 'text-muted' : ok ? 'text-accent-fg font-semibold' : 'text-danger-fg font-semibold'}>
       {value}
     </span>
   </div>

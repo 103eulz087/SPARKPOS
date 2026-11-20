@@ -1,0 +1,75 @@
+{
+  "title": "A cash sale",
+  "summary": "Scan or search items, scan a scale sticker, pay in cash.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "cash-sale",
+      "caption": "A cash sale"
+    },
+    {
+      "say": "Scan each item's barcode"
+    },
+    {
+      "scan": "4801981116072",
+      "wait": 700
+    },
+    {
+      "scan": "4800066120171",
+      "wait": 700
+    },
+    {
+      "say": "A weighing-scale sticker adds the item with its weight"
+    },
+    {
+      "scan": "2510015012500",
+      "wait": 900
+    },
+    {
+      "shot": "cart",
+      "caption": "Three lines in the cart: two scanned items and a weighed sticker (1.250 kg)."
+    },
+    {
+      "say": "Press PAY"
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 700
+    },
+    {
+      "say": "Type the cash received and press Add cash"
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "1000"
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "shot": "payment",
+      "caption": "Payment: the cash added and the change to give back."
+    },
+    {
+      "say": "Press Complete sale. The invoice prints."
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "shot": "after-sale",
+      "caption": "The sale is done and the invoice printed; the cart is empty for the next customer."
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "03-cash-sale"
+}

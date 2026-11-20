@@ -1,0 +1,51 @@
+{
+  "title": "Cash Begin: open a shift",
+  "summary": "Pick the terminal, type the change fund, open the shift.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "cash-begin",
+      "caption": "Opening a shift"
+    },
+    {
+      "say": "Pick your terminal"
+    },
+    {
+      "click": "$GUIDE_TERMINAL",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "say": "Type the change fund in the drawer"
+    },
+    {
+      "fill": {
+        "label": "Change fund (₱)"
+      },
+      "value": "1000"
+    },
+    {
+      "shot": "cash-begin",
+      "caption": "Cash Begin with the terminal picked and the change fund typed in."
+    },
+    {
+      "say": "Press Open shift"
+    },
+    {
+      "click": "Open shift",
+      "exact": true
+    },
+    {
+      "waitText": "POS-DEMO",
+      "wait": 1500
+    },
+    {
+      "shot": "pos-empty",
+      "caption": "The POS screen, ready to sell. The header shows branch, terminal and business date."
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "02-cash-begin"
+}

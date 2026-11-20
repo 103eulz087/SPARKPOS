@@ -1,0 +1,133 @@
+{
+  "title": "A return (refund)",
+  "summary": "Return items from an earlier invoice of this terminal and pay the refund in cash, with a supervisor's approval.",
+  "steps": [
+    {
+      "scan": "4800066120171",
+      "wait": 400,
+      "fast": true
+    },
+    {
+      "scan": "4803925151125",
+      "wait": 400,
+      "fast": true
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "200",
+      "fast": true
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 400
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "start",
+      "clip": "return",
+      "caption": "A return"
+    },
+    {
+      "say": "Open Return"
+    },
+    {
+      "click": "Return",
+      "exact": true,
+      "wait": 700
+    },
+    {
+      "say": "Type the SI No. on the customer's invoice and press Find"
+    },
+    {
+      "fill": {
+        "label": "Ref SI No."
+      },
+      "value": "@lastSI"
+    },
+    {
+      "click": "Find",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "say": "Pick what comes back: here all of the first item"
+    },
+    {
+      "click": "All",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "shot": "return-lines",
+      "caption": "The invoice's lines with what can still be returned; the quantity to return is filled in for the first item."
+    },
+    {
+      "say": "Press Review refund"
+    },
+    {
+      "click": "Review refund",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "say": "The supervisor approves, and you give the reason"
+    },
+    {
+      "fill": {
+        "label": "Supervisor username"
+      },
+      "value": "$GUIDE_SUPERVISOR_USER"
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_SUPERVISOR_PASSWORD",
+      "fast": true
+    },
+    {
+      "fill": {
+        "label": "Reason"
+      },
+      "value": "Damaged can"
+    },
+    {
+      "shot": "return-review",
+      "caption": "The refund to pay back, the supervisor's approval and the reason."
+    },
+    {
+      "say": "Press Refund & print. Pay the refund from the drawer."
+    },
+    {
+      "click": "Refund & print",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "shot": "return-done",
+      "caption": "The return is done and its RETURN receipt printed."
+    },
+    {
+      "say": "Press Close",
+      "click": "Close",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "10-return"
+}

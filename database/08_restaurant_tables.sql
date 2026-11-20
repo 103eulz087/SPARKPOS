@@ -51,7 +51,7 @@ BEGIN
     CREATE TABLE dbo.OpenOrderItems (
         OpenOrderItemId BIGINT IDENTITY(1,1) PRIMARY KEY,
         OpenOrderUid    UNIQUEIDENTIFIER NOT NULL REFERENCES dbo.OpenOrders(OpenOrderUid),
-        LineNo          INT NOT NULL,
+        [LineNo]        INT NOT NULL,
         ProductId       INT NOT NULL,
         Barcode         NVARCHAR(50) NOT NULL,
         ProductName     NVARCHAR(150) NOT NULL,
@@ -61,7 +61,7 @@ BEGIN
         IsVatable       BIT NOT NULL DEFAULT 1,
         IsDiscountable  BIT NOT NULL DEFAULT 1,
         AddedAt         DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
-        CONSTRAINT UQ_OpenOrderItems UNIQUE (OpenOrderUid, LineNo)
+        CONSTRAINT UQ_OpenOrderItems UNIQUE (OpenOrderUid, [LineNo])
     );
     CREATE INDEX IX_OpenOrderItems_Order ON dbo.OpenOrderItems(OpenOrderUid);
 END

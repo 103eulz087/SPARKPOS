@@ -50,6 +50,16 @@ class PosDb extends Dexie {
       posTables: 'TableId, BranchCode',
       openOrders: 'OpenOrderUid, TableId, Status, syncStatus'
     })
+    // Offline sign-in: one encrypted, device-derived password check per user who signed in
+    // online here (lib/offlineAuth.js). Nothing in it came from the server.
+    this.version(4).stores({
+      products: 'productId, barcode, productName, categoryId',
+      pendingSales: 'saleUid, syncStatus, shiftUid',
+      meta: 'key',
+      posTables: 'TableId, BranchCode',
+      openOrders: 'OpenOrderUid, TableId, Status, syncStatus',
+      credentials: 'key'
+    })
   }
 }
 export const db = new PosDb()
@@ -57,12 +67,21 @@ export const db = new PosDb()
 export const getMeta = async (k) => (await db.meta.get(k))?.value ?? null
 export const setMeta = (k, value) => db.meta.put({ key: k, value })
 
-/** Consume the next OR number from the locally-held block. */
+/** Held sales (Hold / Recall): a sale parked on this till while the customer gets more cash.
+ *  Kept per terminal on the device, so it survives a reload and works offline. Nothing reaches
+ *  the server and no SI number is used until it's recalled and paid. Blind Close refuses while
+ *  any are left. */
+const heldKey = (terminalId) => `held_${terminalId}`
+export const getHeld = async (terminalId) => (await getMeta(heldKey(terminalId))) || []
+export const putHeld = (terminalId, list) => setMeta(heldKey(terminalId), list)
+
+/** Consume the next Sales Invoice number from the locally-held block (BIR: 18 digits,
+ *  non-resettable, gap-free per terminal — see sp_AllocateORRange). */
 export async function nextORNumber() {
   const next = Number(await getMeta('or_next'))
   const end = Number(await getMeta('or_end'))
   if (!next || !end || next > end)
-    throw new Error('OR number range exhausted. Reconnect to allocate a new block.')
+    throw new Error('No sales invoice numbers left on this device. Reconnect to reserve more.')
   await setMeta('or_next', String(next + 1))
   return next
 }
@@ -77,16 +96,27 @@ export async function orRemaining() {
    ========================================================== */
 export const getToken = () => localStorage.getItem('pos_token')
 
+/** This device's own key for the terminal a supervisor assigned it to (TerminalsController.
+ *  AssignDevice). Sent on every request; the server keeps only its hash. Clearing the site's
+ *  data loses it, and a supervisor then assigns the device again. */
+export const getDeviceToken = () => { try { return localStorage.getItem('pos_deviceToken') } catch { return null } }
+export const setDeviceToken = (t) => { try { localStorage.setItem('pos_deviceToken', t) } catch { /* private mode */ } }
+
 export async function api(path, options = {}) {
   const res = await fetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      ...(getDeviceToken() ? { 'X-Device-Token': getDeviceToken() } : {}),
       ...(options.headers || {})
     }
   })
-  if (res.status === 401) {
+  // (the sign-in itself answers 401 for a wrong password: shown as is, below)
+  if (res.status === 401 && path !== '/api/auth/login') {
+    // Signed in offline (no token): never yank the cashier to the login page mid-sale —
+    // the header offers "sign in again" once the connection is back.
+    if (!getToken()) throw new Error('You signed in offline. Sign in again (online) to do this.')
     localStorage.removeItem('pos_token')
     window.location.href = '/login'
     throw new Error('Session expired')
@@ -95,9 +125,14 @@ export async function api(path, options = {}) {
     const body = await res.text()
     let msg = body
     try { msg = JSON.parse(body).message ?? body } catch { /* raw text */ }
+    // A role check ([Authorize(Roles = ...)]) answers 403 with no body
+    if (res.status === 403 && !msg) msg = 'Your account isn\'t allowed to do this. Ask an Admin.'
     throw new Error(msg || `Request failed (${res.status})`)
   }
   const text = await res.text()
+  // An older server answers an /api address it doesn't know with the web page itself
+  if (/^\s*<(!doctype|html)/i.test(text))
+    throw new Error('The server is running an older version than this screen. Update the server (PosApi.dll), then try again.')
   return text ? JSON.parse(text) : null
 }
 
@@ -124,18 +159,62 @@ export async function uploadProductImage(file) {
 /* ---------- Catalog: pull this branch's effective price list ---------- */
 export async function pullPriceList(branchCode) {
   const rows = await api(`/api/products/pricelist/${branchCode}`)
+  // wholesale tiers by quantity (33_wholesale.sql), highest minimum first; none from an older server
+  const tiers = {}
+  for (const t of await api(`/api/wholesale/branch/${branchCode}`).catch(() => []) || [])
+    (tiers[t.ProductId] ||= []).push({ minQty: Number(t.MinQty), amountOff: Number(t.AmountOff) })
+  for (const k in tiers) tiers[k].sort((a, b) => b.minQty - a.minQty)
   const products = rows.map(r => ({
     productId: r.ProductId, barcode: r.Barcode, productName: r.ProductName,
     categoryId: r.CategoryId, categoryName: r.CategoryName, unit: r.Unit,
     price: Number(r.Price), basePrice: Number(r.BasePrice), hasOverride: !!r.HasOverride,
     isVatable: !!r.IsVatable, isDiscountable: !!r.IsDiscountable,
-    allowPriceEdit: !!r.AllowPriceEdit, imageUrl: r.ImageUrl || null
+    allowPriceEdit: !!r.AllowPriceEdit, imageUrl: r.ImageUrl || null,
+    erpProductCode: r.ErpProductCode || null,   // what a scale sticker's product code matches
+    // Price1..4 (31_price_levels.sql); null = no such level (the item sells at price there)
+    levels: [r.Price1, r.Price2, r.Price3, r.Price4].map(v => (v == null ? null : Number(v))),
+    wholesale: tiers[r.ProductId] || null
   }))
   await db.products.clear()
   await db.products.bulkPut(products)
+  // promos (34_promos.sql), kept for offline; an older server has none
+  const pr = await api(`/api/promos/branch/${branchCode}`).catch(() => null)
+  if (pr) await setMeta('promos', pr)
   await setMeta('catalog_branch', branchCode)
   await setMeta('catalog_pulled_at', new Date().toISOString())
   return products.length
+}
+
+/** Downloads the branch's promos again while online, so a promo saved in Admin reaches an open
+ *  shift without a new Cash Begin. Returns them as loadPromos() does, or null when offline or the
+ *  server didn't answer (the cached ones stay). */
+export async function refreshPromos(branchCode) {
+  if (!isOnline() || !branchCode) return null
+  if ((await getMeta('catalog_branch').catch(() => null)) !== branchCode) return null
+  const token = getToken()
+  if (!token) return null   // signed in offline: waits for an online sign-in
+  // a plain fetch, not api(): an expired session (12 h) must not send the cashier to the
+  // sign-in page from a background check
+  const res = await fetch(`/api/promos/branch/${encodeURIComponent(branchCode)}`, {
+    headers: { Authorization: `Bearer ${token}`, ...(getDeviceToken() ? { 'X-Device-Token': getDeviceToken() } : {}) }
+  }).catch(() => null)
+  const pr = res?.ok ? await res.json().catch(() => null) : null
+  if (!Array.isArray(pr?.promos)) return null
+  await setMeta('promos', pr)
+  return loadPromos()
+}
+
+/** The branch's promos as the cart uses them (store.js applyPromos), from the last download. */
+export async function loadPromos() {
+  const pr = await getMeta('promos').catch(() => null)
+  if (!pr?.promos) return []
+  const items = {}
+  for (const i of pr.items || []) (items[i.PromoId] ||= new Set()).add(i.ProductId)
+  return pr.promos.map(p => ({
+    promoId: p.PromoId, promoName: p.PromoName, kind: p.Kind, buyQty: Number(p.BuyQty), freeQty: Number(p.FreeQty),
+    freeProductId: p.FreeProductId ?? null, maxFreePerSale: p.MaxFreePerSale ?? null,
+    startDate: String(p.StartDate).slice(0, 10), endDate: String(p.EndDate).slice(0, 10), productIds: items[p.PromoId] || new Set()
+  }))
 }
 
 /* ==========================================================
@@ -263,7 +342,7 @@ export async function closeLocalOrder(openOrderUid, saleUid) {
 let syncingOrders = false
 
 export async function syncPendingOrders() {
-  if (syncingOrders || !isOnline()) return { synced: 0, failed: 0 }
+  if (syncingOrders || !isOnline() || !getToken()) return { synced: 0, failed: 0 }
   syncingOrders = true
   try {
     const pending = await db.openOrders.where('syncStatus').anyOf('pending', 'error').toArray()
@@ -301,36 +380,54 @@ function normalizeServerSale(r) {
     vatableAmount: s.VatableAmount, vatAmount: s.VatAmount, zeroRatedAmount: s.ZeroRatedAmount,
     netAmount: s.NetAmount, tenderedAmount: s.TenderedAmount, changeAmount: s.ChangeAmount,
     discountCode: s.DiscountCode, discountCtrlNo: s.DiscountCtrlNo, discountName: s.DiscountName,
+    vatAdjustment: s.VatAdjustment, dinerCount: s.DinerCount, seniorCount: s.SeniorCount,
+    customerName: s.CustomerName, customerAddress: s.CustomerAddress, customerTin: s.CustomerTin,
+    customerBusinessStyle: s.CustomerBusinessStyle, customerEmail: s.CustomerEmail, receiptText: s.ReceiptText,
+    zeroRatedCertNo: s.ZeroRatedCertNo,
     status: s.Status,
     items: r.items.map(i => ({
       lineNo: i.LineNo, productId: i.ProductId, barcode: i.Barcode, productName: i.ProductName,
       categoryId: i.CategoryId, quantity: i.Quantity, unitPrice: i.UnitPrice,
       origUnitPrice: i.OrigUnitPrice, lineDiscount: i.LineDiscount, lineTotal: i.LineTotal,
-      isVatable: i.IsVatable, isDiscountable: i.IsDiscountable
+      isVatable: i.IsVatable, isDiscountable: i.IsDiscountable,
+      zeroRated: !!s.ZeroRatedCertNo && !!i.IsVatable,
+      netAmount: i.NetAmount, returnedQty: Number(i.ReturnedQty || 0)
     })),
     payments: r.payments.map(p => ({
       seqNo: p.SeqNo, paymentType: p.PaymentType, amount: p.Amount,
-      cardNo: p.CardNo, cardBank: p.CardBank, cardRefNo: p.CardRefNo, cardName: p.CardName
+      cardNo: p.CardNo, cardBank: p.CardBank, cardRefNo: p.CardRefNo, cardName: p.CardName,
+      gcNo: p.GcNo, gcValue: p.GcValue
     }))
   }
 }
 
-/** Finds a sale by OR number for Void/Reprint. Checks the local offline queue first (works
+/** Finds a sale by Sales Invoice number for Void/Reprint/Return. Checks the local offline queue first (works
  *  without a connection, covers a sale made moments ago that hasn't synced yet), then falls
  *  back to the server (covers older/already-synced sales — requires connectivity). Throws if
  *  not found either way. */
-export async function findSaleByOr(terminalId, orNumber) {
+export async function findSaleByOr(terminalId, orNumber, { serverOnly = false } = {}) {
   const n = Number(orNumber)
-  const local = await db.pendingSales
-    .filter(s => s.terminalId === terminalId && Number(s.orNumber) === n)
-    .first()
-  if (local) return local
+  if (!serverOnly) {
+    const local = await db.pendingSales
+      .filter(s => s.terminalId === terminalId && Number(s.orNumber) === n)
+      .first()
+    if (local) return local
+  }
   const r = await api(`/api/sales/by-or/${terminalId}/${n}`)
   return normalizeServerSale(r)
 }
 
-export async function allocateOrRange(terminalId, blockSize = 500) {
-  const r = await api(`/api/terminals/${terminalId}/allocate-or-range?blockSize=${blockSize}`, { method: 'POST' })
+/** A return transaction by its 6-digit number on this terminal (online only, like returns). */
+export const findReturnByNo = (terminalId, returnNo) =>
+  api(`/api/returns/by-no/${terminalId}/${Number(returnNo)}`)
+
+/** Reserves this terminal's next block of Sales Invoice numbers. The server starts the block
+ *  right after the last number the terminal actually used, so a leftover block never leaves
+ *  a gap. `from` (this device's own next number) is only sent while it still holds unsynced
+ *  sales, so the new block continues after those instead of reusing their numbers. */
+export async function allocateOrRange(terminalId, blockSize = 500, from = null) {
+  const q = `blockSize=${blockSize}${from ? `&from=${from}` : ''}`
+  const r = await api(`/api/terminals/${terminalId}/allocate-or-range?${q}`, { method: 'POST' })
   await setMeta('or_next', String(r.RangeStart))
   await setMeta('or_end', String(r.RangeEnd))
   return r
@@ -342,7 +439,7 @@ export async function allocateOrRange(terminalId, blockSize = 500) {
 let syncing = false
 
 export async function syncPendingSales() {
-  if (syncing || !isOnline()) return { synced: 0, failed: 0 }
+  if (syncing || !isOnline() || !getToken()) return { synced: 0, failed: 0 }
   syncing = true
   try {
     const pending = await db.pendingSales.where('syncStatus').anyOf('pending', 'error').toArray()
@@ -431,6 +528,43 @@ function printViaRawBt(text) {
   const data = encodeURIComponent(bytesToBase64(buildEscPos(text)))
   window.location.href = `rawbt:base64,${data}`
   return true
+}
+
+/** 39: open the cash drawer with no sale. The drawer hangs off the receipt printer and opens on the
+ *  ESC p pulse (pins 2 and 5): sent through RawBT on the handheld, or PrintAgent 2.1's /drawer.
+ *  Returns 'KICK' when sent; null when there's no agent with /drawer (an older PrintAgent), and the
+ *  caller then prints a NO SALE slip, which opens the drawer the way any print does. */
+export async function openDrawer(target) {
+  const kick = [0x1b, 0x70, 0x00, 0x19, 0xfa, 0x1b, 0x70, 0x01, 0x19, 0xfa]
+  if (target && target.startsWith('rawbt')) {
+    window.location.href = `rawbt:base64,${encodeURIComponent(bytesToBase64(kick))}`
+    return 'KICK'
+  }
+  try {
+    const res = await fetch('http://localhost:5099/drawer', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target })
+    })
+    if (res.ok) return 'KICK'
+  } catch { /* no agent on this PC, or an older one */ }
+  return null
+}
+
+/** 39: each opening goes to the server; offline (or it fails) it waits in meta 'drawer_log' and
+ *  flushDrawerLog() sends it later. The server keeps each id once. */
+export async function logDrawerOpen(entry) {
+  try { await sendDrawerOpen(entry) } catch {
+    const list = (await getMeta('drawer_log')) || []
+    await setMeta('drawer_log', [...list, entry])
+  }
+}
+const sendDrawerOpen = (e) => api(`/api/shifts/${e.shiftUid}/drawer-open`, { method: 'POST', body: JSON.stringify(e) })
+export async function flushDrawerLog() {
+  if (!navigator.onLine || !getToken()) return
+  const list = (await getMeta('drawer_log')) || []
+  if (!list.length) return
+  const left = []
+  for (const e of list) { try { await sendDrawerOpen(e) } catch { left.push(e) } }
+  await setMeta('drawer_log', left)
 }
 
 export async function printText(text, target) {

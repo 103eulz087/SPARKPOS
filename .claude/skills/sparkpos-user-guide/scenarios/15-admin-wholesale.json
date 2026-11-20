@@ -1,0 +1,97 @@
+{
+  "title": "Wholesale prices in Admin",
+  "summary": "Admin → Wholesale: which branches have wholesale, and the rules (here VROSS's memo: pork, beef and chicken by the kilo, with Pork Belly's own rule and items left out).",
+  "steps": [
+    {
+      "goto": "/login",
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Username"
+      },
+      "value": "$GUIDE_ADMIN_USER",
+      "fast": true
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_ADMIN_PASSWORD",
+      "fast": true
+    },
+    {
+      "click": "Sign in",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "select": {
+        "label": "Branch"
+      },
+      "value": "$GUIDE_BRANCH"
+    },
+    {
+      "click": "Continue",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "click": "Wholesale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "start",
+      "clip": "admin-wholesale",
+      "caption": "Wholesale rules"
+    },
+    {
+      "shot": "admin-wholesale",
+      "caption": "Admin → Wholesale: the branches with wholesale on (V1, V2, V3, V5, V6), then the rules. \"All Pork\" from 5 kg ₱5 off, 10 kg ₱10, 15 kg ₱15; Pork Belly's own rule; Chop, Paa and Semi-paa excluded."
+    },
+    {
+      "say": "Each rule: a whole category or one item, from a quantity, ₱ off per kg"
+    },
+    {
+      "click": "Add wholesale rule",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "select": {
+        "label": "Category"
+      },
+      "value": "78",
+      "wait": 400
+    },
+    {
+      "fill": {
+        "label": "From quantity (kg / pcs) in one sale"
+      },
+      "value": "20"
+    },
+    {
+      "fill": {
+        "label": "₱ off per kg / pc"
+      },
+      "value": "15"
+    },
+    {
+      "shot": "admin-wholesale-rule",
+      "caption": "Adding a rule: a whole category (or one item), the branch, from how many kg in one sale, and the ₱ off each kg. (Not saved in this example.)"
+    },
+    {
+      "say": "Cancel: this is only to show the form"
+    },
+    {
+      "click": "Cancel",
+      "exact": true,
+      "wait": 800
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "15-admin-wholesale"
+}

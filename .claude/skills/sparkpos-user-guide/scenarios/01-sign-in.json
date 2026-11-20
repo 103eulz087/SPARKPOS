@@ -1,0 +1,53 @@
+{
+  "title": "Sign in",
+  "summary": "Open SparkPOS and sign in with your own user ID.",
+  "steps": [
+    {
+      "goto": "/login",
+      "wait": 800
+    },
+    {
+      "video": "start",
+      "clip": "sign-in",
+      "caption": "Signing in"
+    },
+    {
+      "shot": "sign-in-page",
+      "caption": "The sign-in page."
+    },
+    {
+      "say": "Type your user ID and password"
+    },
+    {
+      "fill": {
+        "label": "Username"
+      },
+      "value": "$GUIDE_CASHIER_USER"
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_CASHIER_PASSWORD"
+    },
+    {
+      "shot": "sign-in-filled",
+      "caption": "User ID and password typed in."
+    },
+    {
+      "say": "Press Sign in"
+    },
+    {
+      "click": "Sign in",
+      "exact": true
+    },
+    {
+      "waitText": "Cash Begin",
+      "wait": 800
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "01-sign-in"
+}

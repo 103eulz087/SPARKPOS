@@ -29,7 +29,7 @@ public class ProductsController(Db db) : ApiControllerBase(db)
         return Ok(await con.QueryAsync(
             @"SELECT p.ProductId, p.Barcode, p.ProductName, p.CategoryId, c.CategoryName, p.Unit,
                      p.BasePrice, p.Cost, p.IsVatable, p.IsDiscountable, p.AllowPriceEdit, p.IsActive,
-                     p.ImageUrl,
+                     p.ImageUrl, p.ErpProductCode,
                      (SELECT COUNT(*) FROM dbo.ProductPrices pp WHERE pp.ProductId = p.ProductId) AS OverrideCount
               FROM dbo.Products p JOIN dbo.Categories c ON c.CategoryId = p.CategoryId
               ORDER BY p.ProductName"));
@@ -55,9 +55,16 @@ public class ProductsController(Db db) : ApiControllerBase(db)
         foreach (var p in req.Prices) tvp.Rows.Add(p.BranchCode, p.Price);
 
         using var con = Db.Open();
-        await con.ExecuteAsync("dbo.sp_SaveProductPrices",
-            new { ProductId = id, UpdatedBy = UserId, Prices = tvp.AsTableValuedParameter("dbo.TVP_BranchPrice") },
-            commandType: CommandType.StoredProcedure);
+        try
+        {
+            await con.ExecuteAsync("dbo.sp_SaveProductPrices",
+                new { ProductId = id, UpdatedBy = UserId, Prices = tvp.AsTableValuedParameter("dbo.TVP_BranchPrice") },
+                commandType: CommandType.StoredProcedure);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 53010)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
         await AuditAsync(con, "PRICE_OVERRIDE", $"Product {id}: {req.Prices.Count} branch override(s) saved");
         return Ok();
     }
@@ -84,7 +91,9 @@ public class ProductsController(Db db) : ApiControllerBase(db)
         using var con = Db.Open();
         await con.ExecuteAsync(
             @"UPDATE dbo.Products SET Barcode=@Barcode, ProductName=@ProductName, CategoryId=@CategoryId,
-                Unit=@Unit, BasePrice=@BasePrice, Cost=@Cost, IsVatable=@IsVatable,
+                Unit=@Unit, Cost=@Cost, IsVatable=@IsVatable,
+                -- an ERP product's price comes from the ERP (sp_ErpSyncMasterData)
+                BasePrice=CASE WHEN ErpProductCode IS NULL THEN @BasePrice ELSE BasePrice END,
                 IsDiscountable=@IsDiscountable, AllowPriceEdit=@AllowPriceEdit, IsActive=@IsActive,
                 ImageUrl=@ImageUrl, RowVersionTs=SYSDATETIME()
               WHERE ProductId=@id",
@@ -152,7 +161,7 @@ public class ProductsController(Db db) : ApiControllerBase(db)
     {
         using var con = Db.Open();
         return Ok(await con.QueryAsync(
-            @"SELECT c.CategoryId, c.CategoryName, c.IsActive,
+            @"SELECT c.CategoryId, c.CategoryName, c.IsActive, c.ErpCategoryId,
                      (SELECT COUNT(*) FROM dbo.Products p WHERE p.CategoryId = c.CategoryId) AS ProductCount
               FROM dbo.Categories c ORDER BY c.CategoryName"));
     }

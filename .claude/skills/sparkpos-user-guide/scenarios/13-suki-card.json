@@ -1,0 +1,114 @@
+{
+  "title": "Suki card: earn and check points",
+  "summary": "Tap the customer's suki card before paying: the sale earns 1 point for every ₱200 paid. Tap it any time to check the balance.",
+  "steps": [
+    {
+      "scan": "2510015012500",
+      "wait": 500,
+      "fast": true
+    },
+    {
+      "scan": "4801981116072",
+      "wait": 500,
+      "fast": true
+    },
+    {
+      "video": "start",
+      "clip": "suki-card",
+      "caption": "Suki card"
+    },
+    {
+      "say": "Press the Suki card button"
+    },
+    {
+      "click": "Suki card:",
+      "wait": 700
+    },
+    {
+      "say": "Tap the customer's card on the reader"
+    },
+    {
+      "fill": {
+        "label": "Card or mobile number"
+      },
+      "value": "$GUIDE_SUKI_CARD",
+      "fast": true
+    },
+    {
+      "press": "Enter",
+      "wait": 1200
+    },
+    {
+      "shot": "suki-balance",
+      "caption": "The card's owner and points balance. Without a card, type the customer's mobile number instead."
+    },
+    {
+      "say": "Press Use for this sale"
+    },
+    {
+      "click": "Use for this sale",
+      "exact": true,
+      "wait": 800
+    },
+    {
+      "shot": "suki-cart",
+      "caption": "The card is on the sale; the cart shows the balance and the points this sale earns."
+    },
+    {
+      "say": "Pay as usual"
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "1000",
+      "fast": true
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 3500
+    },
+    {
+      "say": "Check the points any time: tap the card again"
+    },
+    {
+      "click": "Suki card:",
+      "wait": 700
+    },
+    {
+      "fill": {
+        "label": "Card or mobile number"
+      },
+      "value": "$GUIDE_SUKI_CARD",
+      "fast": true
+    },
+    {
+      "press": "Enter",
+      "wait": 1200
+    },
+    {
+      "shot": "suki-after",
+      "caption": "A points inquiry after the sale: the new balance. No sale is needed to check points."
+    },
+    {
+      "click": "Close",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "13-suki-card"
+}

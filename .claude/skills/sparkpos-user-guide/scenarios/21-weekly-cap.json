@@ -1,0 +1,103 @@
+{
+  "title": "The senior's weekly cap",
+  "summary": "When the booklet has less left this week, type how much the 5% may still take off; a supervisor approves.",
+  "steps": [
+    {
+      "scan": "2545553030000",
+      "wait": 600
+    },
+    {
+      "video": "start",
+      "clip": "weekly-cap",
+      "caption": "Weekly cap from the booklet"
+    },
+    {
+      "click": "Discount",
+      "exact": true,
+      "wait": 800
+    },
+    {
+      "click": "SENIOR",
+      "wait": 400
+    },
+    {
+      "fill": {
+        "label": "Control No."
+      },
+      "value": "SC-0001234"
+    },
+    {
+      "fill": {
+        "label": "Name"
+      },
+      "value": "Juan Dela Cruz"
+    },
+    {
+      "clickSelector": "input[type=checkbox]",
+      "wait": 600
+    },
+    {
+      "say": "The booklet has ₱20 left this week: type 20"
+    },
+    {
+      "fill": {
+        "placeholder": "Blank = what the booklet allows, up to ₱125"
+      },
+      "value": "20",
+      "wait": 600
+    },
+    {
+      "say": "A supervisor approves"
+    },
+    {
+      "fill": {
+        "label": "Supervisor username"
+      },
+      "value": "$GUIDE_SUPERVISOR_USER"
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_SUPERVISOR_PASSWORD"
+    },
+    {
+      "shot": "weekly-cap",
+      "caption": "Weekly cap ₱20: the 5% takes off ₱20 instead of the full amount. A supervisor approves."
+    },
+    {
+      "click": "Apply",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "shot": "weekly-cap-cart",
+      "caption": "The cart: the 5% line shows ₱20.00."
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "1000"
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "21-weekly-cap"
+}

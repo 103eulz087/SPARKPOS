@@ -27,6 +27,7 @@ public class EndOfDayController(Db db, PrintService printer, ReceiptBuilder rece
         var branchCode = await con.ExecuteScalarAsync<string?>(
             "SELECT BranchCode FROM dbo.Terminals WHERE TerminalId = @t", new { t = req.TerminalId });
         if (branchCode == null) return NotFound(new { message = "Terminal not found." });
+        if (!CanActAt(branchCode)) return StatusCode(403, new { message = $"This terminal belongs to branch {branchCode}." });
 
         // Matches the Void/PriceEdit/Reprint override pattern: a privileged user running
         // it themselves never needs a separate credential, and the setting can turn the
@@ -37,7 +38,7 @@ public class EndOfDayController(Db db, PrintService printer, ReceiptBuilder rece
         var approverId = UserId;
         if (needsOverride && !IsPrivileged)
         {
-            var id = await VerifyApproverAsync(con, req.ApproverUsername, req.ApproverPassword);
+            var id = await VerifyApproverAsync(con, req.ApproverUsername, req.ApproverPassword, branchCode);
             if (id == null)
                 return StatusCode(403, new { message = "End of Day requires a valid Supervisor or Admin credential." });
             approverId = id.Value;
@@ -94,18 +95,28 @@ public class EndOfDayController(Db db, PrintService printer, ReceiptBuilder rece
     {
         using var con = Db.Open();
         var s = await con.QuerySingleAsync<dynamic>("dbo.sp_GetTerminalDayState",
-            new { TerminalId = terminalId, BusinessDate = businessDate ?? DateTime.Today },
+            new { TerminalId = terminalId, BusinessDate = businessDate ?? LocalTime.FromUtc(DateTime.UtcNow).Date },
             commandType: CommandType.StoredProcedure);
 
         var state = (string)s.DayState;
+        var unclosed = (DateTime?)s.UnclosedDate;
         return Ok(new
         {
             dayState = state,
             openShifts = (int)s.OpenShifts,
             closedShifts = (int)s.ClosedShifts,
             lastCashier = (string?)s.LastCashier,
-            canSell = state != "eodDone",
-            canRunEod = state == "eodPending" || (state == "open" && (int)s.OpenShifts == 0 && (int)s.ClosedShifts > 0)
+            // An earlier day left unclosed must be closed before this one starts (sp_OpenShift).
+            canSell = state != "eodDone" && unclosed == null,
+            canRunEod = state == "eodPending" || (state == "open" && (int)s.OpenShifts == 0 && (int)s.ClosedShifts > 0),
+            unclosedDay = unclosed == null ? null : new
+            {
+                businessDate = unclosed.Value.ToString("yyyy-MM-dd"),
+                openShiftUid = (Guid?)s.UnclosedShiftUid,       // set while that day's shift is still open
+                cashierUserId = (int?)s.UnclosedCashierUserId,
+                cashier = (string?)s.UnclosedCashier,
+                cashBegin = (decimal?)s.UnclosedCashBegin
+            }
         });
     }
 
@@ -136,7 +147,9 @@ public class EndOfDayController(Db db, PrintService printer, ReceiptBuilder rece
         using var con = Db.Open();
         var z = await con.QuerySingleOrDefaultAsync(
             @"SELECT z.*, t.TerminalCode, t.PrinterTarget, t.PaperWidth, t.PrintAgentKey, b.BranchName,
-                     cu.FullName AS ClosedByName, au.FullName AS ApprovedByName
+                     cu.FullName AS ClosedByName, au.FullName AS ApprovedByName,
+                     (SELECT ISNULL(SUM(x.ChangeAmount), 0) FROM dbo.Sales x
+                      WHERE x.TerminalId = z.TerminalId AND x.BusinessDate = z.BusinessDate AND x.Status = 'Completed') AS ChangeGiven
               FROM dbo.ZReads z
               JOIN dbo.Terminals t ON t.TerminalId = z.TerminalId
               JOIN dbo.Branches b ON b.BranchCode = z.BranchCode

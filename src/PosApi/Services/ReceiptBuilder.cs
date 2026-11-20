@@ -20,6 +20,14 @@ public class ReceiptBuilder
     }
     private static string Rule(int w) => new('-', w);
     private static string M(decimal d) => d.ToString("N2");
+    /// A column a Dapper row may not have (e.g. a DB not yet on a migration): 0 when missing.
+    private static decimal Dec(dynamic row, string column) =>
+        row is IDictionary<string, object> d && d.TryGetValue(column, out var v) && v != null ? Convert.ToDecimal(v) : 0m;
+
+    /// BIR Sales Invoice No.: always 18 digits, zero-padded (Sales.ORNumber). Return
+    /// numbers are 6 digits. Mirrors siNo()/returnNo() in web/src/lib/receipt.js.
+    public static string Si(object? n) => n == null ? "-" : Convert.ToInt64(n).ToString("D18");
+    public static string Rtn(object? n) => n == null ? "-" : Convert.ToInt32(n).ToString("D6");
 
     public string BlindClose(dynamic v, int paperWidthMm = 58)
     {
@@ -42,17 +50,54 @@ public class ReceiptBuilder
         }
         catch { /* malformed json — skip the breakdown */ }
         sb.AppendLine(Rule());
-        sb.AppendLine(LR("CASH BEGIN", M((decimal)v.CashBegin)));
-        sb.AppendLine(LR("CASH SALES", M((decimal)v.CashSales)));
-        sb.AppendLine(LR("CARD SALES (excluded)", M((decimal)v.CardSales)));
+        // How expected cash is reached, line by line: the change handed back is what's left of the stored
+        // figures (cash begin + received - refunds - expected), so the slip always adds up to them.
+        decimal begin = (decimal)v.CashBegin, received = (decimal)v.CashSales, refunds = (decimal)v.CashRefunds,
+            expected = (decimal)v.ExpectedCash;
+        sb.AppendLine(LR("CASH BEGIN", M(begin)));
+        sb.AppendLine(LR("CASH RECEIVED", M(received)));
+        sb.AppendLine(LR("LESS CHANGE GIVEN", M(begin + received - refunds - expected)));
+        sb.AppendLine(LR("LESS CASH REFUNDS", M(refunds)));
+        sb.AppendLine(LR("EXPECTED CASH", M(expected)));
         sb.AppendLine(Rule());
         sb.AppendLine(LR("DECLARED CASH", M((decimal)v.DeclaredCash)));
-        sb.AppendLine(LR("EXPECTED CASH", M((decimal)v.ExpectedCash)));
         sb.AppendLine(LR("SHORT/(OVER)", M(-(decimal)v.ShortOver)));
+        sb.AppendLine(Rule());
+        sb.AppendLine("NOT IN THE DRAWER:");
+        sb.AppendLine(LR("  CARD SALES", M((decimal)v.CardSales)));
+        sb.AppendLine(LR("  GIFT CERT", M(Dec(v, "GcSales"))));   // 38_gift_certificates.sql
         sb.AppendLine(Rule());
         sb.AppendLine(C("FOR SUPERVISOR VERIFICATION"));
         sb.AppendLine(C("Verified by: __________________"));
         sb.Append("\n\n\n");
+        return sb.ToString();
+    }
+
+    /// X-Read and Z-Read: sales and payments printed so each adds up on paper. Gross - discounts - the
+    /// VAT taken off SC/PWD-exempt sales = net; cash received - the change handed back + card + GC = net.
+    /// (CashSales is what was received, change included; ChangeGiven is missing on an older server: 0.)
+    private static string SalesLines(int w, dynamic r)
+    {
+        decimal gross = (decimal)r.GrossSales, disc = (decimal)r.TotalDiscounts, net = (decimal)r.NetSales;
+        var sb = new StringBuilder();
+        sb.AppendLine(LR(w, "GROSS SALES", M(gross)));
+        sb.AppendLine(LR(w, "LESS DISCOUNTS", M(disc)));
+        sb.AppendLine(LR(w, "LESS VAT (SC/PWD)", M(gross - disc - net)));
+        sb.AppendLine(LR(w, "NET SALES", M(net)));
+        return sb.ToString();
+    }
+
+    private static string PaymentLines(int w, dynamic r)
+    {
+        decimal received = (decimal)r.CashSales, change = Dec(r, "ChangeGiven"), card = (decimal)r.CardSales, gc = Dec(r, "GcSales");
+        var sb = new StringBuilder();
+        sb.AppendLine(C(w, "PAYMENT BREAKDOWN"));
+        sb.AppendLine(LR(w, "  CASH RECEIVED", M(received)));
+        sb.AppendLine(LR(w, "  LESS CHANGE GIVEN", M(change)));
+        sb.AppendLine(LR(w, "  CASH SALES", M(received - change)));
+        sb.AppendLine(LR(w, "  CARD", M(card)));
+        sb.AppendLine(LR(w, "  GIFT CERT", M(gc)));   // 38_gift_certificates.sql
+        sb.AppendLine(LR(w, "  TOTAL", M(received - change + card + gc)));
         return sb.ToString();
     }
 
@@ -71,10 +116,12 @@ public class ReceiptBuilder
         sb.AppendLine(LR("CASH BEGIN", M((decimal)x.CashBegin)));
         sb.AppendLine(LR("TXN COUNT", ((int)x.TxnCount).ToString()));
         sb.AppendLine(LR("VOID COUNT", ((int)x.VoidCount).ToString()));
+        sb.AppendLine(LR("VOID AMOUNT", M((decimal)x.VoidAmount)));
+        sb.AppendLine(LR("RETURN COUNT", ((int)x.ReturnCount).ToString()));
+        sb.AppendLine(LR("RETURN AMOUNT", M((decimal)x.ReturnAmount)));
+        sb.AppendLine(LR("DRAWER OPENED, NO SALE", ((int)Dec(x, "DrawerOpens")).ToString()));   // 39_open_drawer.sql
         sb.AppendLine(Rule());
-        sb.AppendLine(LR("GROSS SALES", M((decimal)x.GrossSales)));
-        sb.AppendLine(LR("TOTAL DISCOUNTS", M((decimal)x.TotalDiscounts)));
-        sb.AppendLine(LR("NET SALES", M((decimal)x.NetSales)));
+        sb.Append((string)SalesLines(w, x));
         sb.AppendLine(Rule());
         sb.AppendLine(C("DISCOUNT BREAKDOWN"));
         sb.AppendLine(LR("  SENIOR", M((decimal)x.DiscSenior)));
@@ -82,17 +129,21 @@ public class ReceiptBuilder
         sb.AppendLine(LR("  NAAC", M((decimal)x.DiscNaac)));
         sb.AppendLine(LR("  MOV", M((decimal)x.DiscMov)));
         sb.AppendLine(LR("  SOLO PARENT", M((decimal)x.DiscSolo)));
+        // 30_other_discount.sql; a Z-Read stored before it has no such column
+        sb.AppendLine(LR("  REGULAR/OTHER", M(Dec(x, "DiscOther"))));
+        sb.AppendLine(LR("  PROMOS (BUY N TAKE M)", M(Dec(x, "DiscPromo"))));   // 34_promos.sql
         sb.AppendLine(Rule());
-        sb.AppendLine(C("PAYMENT BREAKDOWN"));
-        sb.AppendLine(LR("  CASH", M((decimal)x.CashSales)));
-        sb.AppendLine(LR("  CARD", M((decimal)x.CardSales)));
+        sb.Append((string)PaymentLines(w, x));
         sb.AppendLine(Rule());
         sb.AppendLine(LR("VATable Sales", M((decimal)x.VatableAmount)));
         sb.AppendLine(LR("VAT (12%)", M((decimal)x.VatAmount)));
         sb.AppendLine(LR("VAT-Exempt Sales", M((decimal)x.VatExemptAmount)));
         sb.AppendLine(LR("Zero-Rated Sales", M((decimal)x.ZeroRatedAmount)));
         sb.AppendLine(Rule());
-        sb.AppendLine(LR("OR RANGE", $"{x.BeginningOR}-{x.EndingOR}"));
+        sb.AppendLine(LR("BEG SI#", Si(x.BeginningOR)));
+        sb.AppendLine(LR("END SI#", Si(x.EndingOR)));
+        sb.AppendLine(LR("BEG RETURN#", Rtn(x.BeginningReturnNo)));
+        sb.AppendLine(LR("END RETURN#", Rtn(x.EndingReturnNo)));
         sb.AppendLine(C("X-READ DOES NOT LOCK THE DAY"));
         sb.Append("\n\n\n");
         return sb.ToString();
@@ -131,12 +182,12 @@ public class ReceiptBuilder
         sb.AppendLine(C($"{z.BranchCode}/{z.TerminalCode} - Z# {z.ZCounter}"));
         sb.AppendLine(C(((DateTime)z.BusinessDate).ToString("yyyy-MM-dd")));
         sb.AppendLine(Rule());
-        sb.AppendLine(LR("BEGINNING OR", z.BeginningOR?.ToString() ?? "-"));
-        sb.AppendLine(LR("ENDING OR", z.EndingOR?.ToString() ?? "-"));
+        sb.AppendLine(LR("BEG SI#", Si(z.BeginningOR)));
+        sb.AppendLine(LR("END SI#", Si(z.EndingOR)));
+        sb.AppendLine(LR("BEG RETURN#", Rtn(z.BeginningReturnNo)));
+        sb.AppendLine(LR("END RETURN#", Rtn(z.EndingReturnNo)));
         sb.AppendLine(Rule());
-        sb.AppendLine(LR("GROSS SALES", M((decimal)z.GrossSales)));
-        sb.AppendLine(LR("TOTAL DISCOUNTS", M((decimal)z.TotalDiscounts)));
-        sb.AppendLine(LR("NET SALES", M((decimal)z.NetSales)));
+        sb.Append((string)SalesLines(w, z));
         sb.AppendLine(Rule());
         sb.AppendLine(C("DISCOUNT BREAKDOWN"));
         sb.AppendLine(LR("  SENIOR", M((decimal)z.DiscSenior)));
@@ -144,10 +195,11 @@ public class ReceiptBuilder
         sb.AppendLine(LR("  NAAC", M((decimal)z.DiscNaac)));
         sb.AppendLine(LR("  MOV", M((decimal)z.DiscMov)));
         sb.AppendLine(LR("  SOLO PARENT", M((decimal)z.DiscSolo)));
+        // 30_other_discount.sql; a Z-Read stored before it has no such column
+        sb.AppendLine(LR("  REGULAR/OTHER", M(Dec(z, "DiscOther"))));
+        sb.AppendLine(LR("  PROMOS (BUY N TAKE M)", M(Dec(z, "DiscPromo"))));   // 34_promos.sql
         sb.AppendLine(Rule());
-        sb.AppendLine(C("PAYMENT BREAKDOWN"));
-        sb.AppendLine(LR("  CASH", M((decimal)z.CashSales)));
-        sb.AppendLine(LR("  CARD", M((decimal)z.CardSales)));
+        sb.Append((string)PaymentLines(w, z));
         sb.AppendLine(Rule());
         sb.AppendLine(LR("VATable Sales", M((decimal)z.VatableAmount)));
         sb.AppendLine(LR("VAT (12%)", M((decimal)z.VatAmount)));
@@ -157,6 +209,9 @@ public class ReceiptBuilder
         sb.AppendLine(LR("TXN COUNT", ((int)z.TxnCount).ToString()));
         sb.AppendLine(LR("VOID COUNT", ((int)z.VoidCount).ToString()));
         sb.AppendLine(LR("VOID AMOUNT", M((decimal)z.VoidAmount)));
+        sb.AppendLine(LR("RETURN COUNT", ((int)z.ReturnCount).ToString()));
+        sb.AppendLine(LR("RETURN AMOUNT", M((decimal)z.ReturnAmount)));
+        sb.AppendLine(LR("DRAWER OPENED, NO SALE", ((int)Dec(z, "DrawerOpens")).ToString()));   // 39_open_drawer.sql
         sb.AppendLine(Rule());
         sb.AppendLine(LR("OLD GRAND TOTAL", M((decimal)z.OldGrandTotal)));
         sb.AppendLine(LR("NEW GRAND TOTAL", M((decimal)z.NewGrandTotal)));
@@ -273,14 +328,23 @@ public class ReceiptBuilder
             FigureRow("Void count", ((int)x.VoidCount).ToString()) +
             FigureRow("Gross sales", M((decimal)x.GrossSales)) +
             FigureRow("Total discounts", M((decimal)x.TotalDiscounts)) +
+            FigureRow("Less VAT (SC/PWD)", M((decimal)x.GrossSales - (decimal)x.TotalDiscounts - (decimal)x.NetSales)) +
             FigureRow("Net sales", M((decimal)x.NetSales), strong: true) +
-            FigureRow("Cash payments", M((decimal)x.CashSales)) +
+            FigureRow("Cash received", M((decimal)x.CashSales)) +
+            FigureRow("Less change given", M(Dec(x, "ChangeGiven"))) +
+            FigureRow("Cash sales", M((decimal)x.CashSales - Dec(x, "ChangeGiven"))) +
             FigureRow("Card payments", M((decimal)x.CardSales)) +
+            FigureRow("Gift certificates", M(Dec(x, "GcSales"))) +
+            FigureRow("Drawer opened, no sale", ((int)Dec(x, "DrawerOpens")).ToString()) +
             FigureRow("VATable sales", M((decimal)x.VatableAmount)) +
             FigureRow("VAT (12%)", M((decimal)x.VatAmount)) +
             FigureRow("VAT-exempt sales", M((decimal)x.VatExemptAmount)) +
             FigureRow("Zero-rated sales", M((decimal)x.ZeroRatedAmount)) +
-            FigureRow("OR range", $"{x.BeginningOR}–{x.EndingOR}"));
+            FigureRow("Void amount", M((decimal)x.VoidAmount)) +
+            FigureRow("Return count", ((int)x.ReturnCount).ToString()) +
+            FigureRow("Return amount (refunded)", M((decimal)x.ReturnAmount)) +
+            FigureRow("Sales invoice range", $"{Si(x.BeginningOR)} – {Si(x.EndingOR)}") +
+            FigureRow("Return no. range", $"{Rtn(x.BeginningReturnNo)} – {Rtn(x.EndingReturnNo)}"));
 
         var inner = SectionHeading("Shift figures") + figures
             + SectionHeading("Group item sales summary") + ItemsTableHtml(items)
@@ -298,9 +362,14 @@ public class ReceiptBuilder
         var figures = FigureTable(
             FigureRow("Gross sales", M((decimal)z.GrossSales)) +
             FigureRow("Total discounts", M((decimal)z.TotalDiscounts)) +
+            FigureRow("Less VAT (SC/PWD)", M((decimal)z.GrossSales - (decimal)z.TotalDiscounts - (decimal)z.NetSales)) +
             FigureRow("Net sales", M((decimal)z.NetSales), strong: true) +
-            FigureRow("Cash payments", M((decimal)z.CashSales)) +
+            FigureRow("Cash received", M((decimal)z.CashSales)) +
+            FigureRow("Less change given", M(Dec(z, "ChangeGiven"))) +
+            FigureRow("Cash sales", M((decimal)z.CashSales - Dec(z, "ChangeGiven"))) +
             FigureRow("Card payments", M((decimal)z.CardSales)) +
+            FigureRow("Gift certificates", M(Dec(z, "GcSales"))) +
+            FigureRow("Drawer opened, no sale", ((int)Dec(z, "DrawerOpens")).ToString()) +
             FigureRow("VATable sales", M((decimal)z.VatableAmount)) +
             FigureRow("VAT (12%)", M((decimal)z.VatAmount)) +
             FigureRow("VAT-exempt sales", M((decimal)z.VatExemptAmount)) +
@@ -308,7 +377,10 @@ public class ReceiptBuilder
             FigureRow("Transaction count", ((int)z.TxnCount).ToString()) +
             FigureRow("Void count", ((int)z.VoidCount).ToString()) +
             FigureRow("Void amount", M((decimal)z.VoidAmount)) +
-            FigureRow("OR range", $"{z.BeginningOR?.ToString() ?? "-"}–{z.EndingOR?.ToString() ?? "-"}") +
+            FigureRow("Return count", ((int)z.ReturnCount).ToString()) +
+            FigureRow("Return amount (refunded)", M((decimal)z.ReturnAmount)) +
+            FigureRow("Sales invoice range", $"{Si(z.BeginningOR)} – {Si(z.EndingOR)}") +
+            FigureRow("Return no. range", $"{Rtn(z.BeginningReturnNo)} – {Rtn(z.EndingReturnNo)}") +
             FigureRow("Old grand total", M((decimal)z.OldGrandTotal)) +
             FigureRow("New grand total", M((decimal)z.NewGrandTotal), strong: true) +
             FigureRow("Closed by", (string)z.ClosedByName) +

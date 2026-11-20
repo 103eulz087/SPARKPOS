@@ -51,6 +51,10 @@ public class ReportsController(Db db) : ApiControllerBase(db)
     public async Task<IActionResult> PaymentBreakdown([FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo, [FromQuery] string? branchCode)
         => Ok(await Exec("dbo.sp_rpt_PaymentBreakdown", new { DateFrom = dateFrom, DateTo = dateTo, BranchCode = branchCode }));
 
+    [HttpGet("gift-certificates")]   // 38
+    public async Task<IActionResult> GiftCertificates([FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo, [FromQuery] string? branchCode)
+        => Ok(await Exec("dbo.sp_rpt_GiftCertificates", new { DateFrom = dateFrom, DateTo = dateTo, BranchCode = branchCode }));
+
     [HttpGet("card-transactions")]
     public async Task<IActionResult> CardTransactions([FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo, [FromQuery] string? branchCode)
         => Ok(await Exec("dbo.sp_rpt_CardTransactions", new { DateFrom = dateFrom, DateTo = dateTo, BranchCode = branchCode }));
@@ -58,6 +62,28 @@ public class ReportsController(Db db) : ApiControllerBase(db)
     [HttpGet("discounts")]
     public async Task<IActionResult> Discounts([FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo, [FromQuery] string? branchCode)
         => Ok(await Exec("dbo.sp_rpt_Discounts", new { DateFrom = dateFrom, DateTo = dateTo, BranchCode = branchCode }));
+
+    /// Wholesale sales for DTI (33_wholesale.sql): every invoice line sold at a wholesale price.
+    [HttpGet("wholesale")]
+    public async Task<IActionResult> Wholesale([FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo, [FromQuery] string? branchCode)
+    {
+        using var con = Db.Open();
+        if (await con.ExecuteScalarAsync<int>("SELECT CASE WHEN OBJECT_ID('dbo.sp_rpt_Wholesale', 'P') IS NULL THEN 0 ELSE 1 END") == 0)
+            return Ok(Array.Empty<object>());
+        return Ok(await con.QueryAsync("dbo.sp_rpt_Wholesale", new { DateFrom = dateFrom, DateTo = dateTo, BranchCode = branchCode },
+            commandType: CommandType.StoredProcedure));
+    }
+
+    /// Promo sales (34_promos.sql): every invoice line with promo-free units.
+    [HttpGet("promos")]
+    public async Task<IActionResult> Promos([FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo, [FromQuery] string? branchCode)
+    {
+        using var con = Db.Open();
+        if (await con.ExecuteScalarAsync<int>("SELECT CASE WHEN OBJECT_ID('dbo.sp_rpt_Promos', 'P') IS NULL THEN 0 ELSE 1 END") == 0)
+            return Ok(Array.Empty<object>());
+        return Ok(await con.QueryAsync("dbo.sp_rpt_Promos", new { DateFrom = dateFrom, DateTo = dateTo, BranchCode = branchCode },
+            commandType: CommandType.StoredProcedure));
+    }
 
     [HttpGet("group-category")]
     public async Task<IActionResult> GroupCategory([FromQuery] DateTime dateFrom, [FromQuery] DateTime dateTo, [FromQuery] string? branchCode)

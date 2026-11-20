@@ -1,0 +1,65 @@
+{
+  "title": "Wholesale and promo reports",
+  "summary": "Admin → Reports: Wholesale (DTI) lists every line sold at a wholesale price; Promos lists every free item.",
+  "steps": [
+    {
+      "goto": "/login",
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Username"
+      },
+      "value": "$GUIDE_ADMIN_USER",
+      "fast": true
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_ADMIN_PASSWORD",
+      "fast": true
+    },
+    {
+      "click": "Sign in",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "select": {
+        "label": "Branch"
+      },
+      "value": "$GUIDE_BRANCH"
+    },
+    {
+      "click": "Continue",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "click": "Reports",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "click": "Wholesale (DTI)",
+      "exact": true,
+      "wait": 2500
+    },
+    {
+      "shot": "report-wholesale",
+      "caption": "Reports → Wholesale (DTI): each line sold at a wholesale price, with the regular and wholesale price and what the customer saved."
+    },
+    {
+      "click": "Promos",
+      "exact": true,
+      "nth": 1,
+      "wait": 2500
+    },
+    {
+      "shot": "report-promos",
+      "caption": "Reports → Promos: each free item, the promo that gave it and the amount."
+    }
+  ],
+  "name": "22-admin-reports-promo-wholesale"
+}

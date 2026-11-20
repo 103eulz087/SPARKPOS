@@ -1,0 +1,61 @@
+{
+  "title": "A wholesale sale",
+  "summary": "Two stickers of one item add up: from 5 kg, every kg gets the wholesale price.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "wholesale-sale",
+      "caption": "Wholesale price by quantity"
+    },
+    {
+      "say": "Scan the first sticker: 3 kg at the regular price"
+    },
+    {
+      "scan": "2545553030000",
+      "wait": 800
+    },
+    {
+      "shot": "wholesale-3kg",
+      "caption": "3 kg of pork spare ribs: the regular price, ₱330 a kg."
+    },
+    {
+      "say": "Scan the second sticker: 5.5 kg in all"
+    },
+    {
+      "scan": "2545553025000",
+      "wait": 1000
+    },
+    {
+      "shot": "wholesale-5kg",
+      "caption": "5.5 kg in all: both lines drop to the wholesale price (₱325, all pork from 5 kg ₱5 off), tagged \"wholesale · reg ₱330\"."
+    },
+    {
+      "say": "Pay as usual"
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "1800"
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "18-wholesale-sale"
+}

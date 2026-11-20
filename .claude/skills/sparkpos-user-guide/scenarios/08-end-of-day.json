@@ -1,0 +1,53 @@
+{
+  "title": "End of Day",
+  "summary": "Close the terminal's business day with a supervisor's approval; the Z-Read prints.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "end-of-day",
+      "caption": "End of Day"
+    },
+    {
+      "say": "Press Run End of Day"
+    },
+    {
+      "click": "Run End of Day",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "shot": "end-of-day",
+      "caption": "End of Day: every shift closed, nothing waiting to send."
+    },
+    {
+      "say": "The supervisor approves"
+    },
+    {
+      "fill": {
+        "label": "Supervisor / Admin username"
+      },
+      "value": "$GUIDE_SUPERVISOR_USER"
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_SUPERVISOR_PASSWORD",
+      "fast": true
+    },
+    {
+      "click": "Authorize and close day",
+      "exact": true,
+      "wait": 2500
+    },
+    {
+      "shot": "z-read",
+      "caption": "End of Day complete, with the Z-Read.",
+      "fullPage": true
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "08-end-of-day"
+}

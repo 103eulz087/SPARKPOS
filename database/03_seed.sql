@@ -78,12 +78,8 @@ INSERT INTO dbo.PosSettings (BranchCode, PosType, StoreHeader1, StoreHeader2, Re
 SELECT BranchCode, 'Retail', 'TABLETPOS MEAT SHOP', BranchName, 'Thank you! Please come again.'
 FROM dbo.Branches;
 
-IF NOT EXISTS (SELECT 1 FROM dbo.ORRanges)
-INSERT INTO dbo.ORRanges (BranchCode, TerminalId, RangeStart, RangeEnd)
-SELECT BranchCode, TerminalId,
-       100000 + (ROW_NUMBER() OVER (ORDER BY TerminalId) - 1) * 1000 + 1,
-       100000 + (ROW_NUMBER() OVER (ORDER BY TerminalId) - 1) * 1000 + 500
-FROM dbo.Terminals;
+/* No ORRanges seed: each terminal's Sales Invoice numbers start at 000000000000000001 and are
+   handed out at Cash Begin by sp_AllocateORRange (continuing from the last one used). */
 
 IF NOT EXISTS (SELECT 1 FROM dbo.EmailConfig)
 INSERT INTO dbo.EmailConfig (BranchCode, SmtpHost, SmtpPort, SmtpUser, SmtpPassword,

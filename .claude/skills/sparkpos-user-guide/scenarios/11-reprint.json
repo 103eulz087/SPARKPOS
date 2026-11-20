@@ -1,0 +1,77 @@
+{
+  "title": "Reprint an invoice",
+  "summary": "Reprint the last invoice, or any earlier one by its SI No.; the copy is marked REPRINT.",
+  "steps": [
+    {
+      "scan": "4801981116072",
+      "wait": 400,
+      "fast": true
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "100",
+      "fast": true
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 400
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "start",
+      "clip": "reprint",
+      "caption": "Reprinting an invoice"
+    },
+    {
+      "say": "Press Reprint"
+    },
+    {
+      "click": "Reprint",
+      "exact": true,
+      "wait": 800
+    },
+    {
+      "say": "The last SI No. is filled in. Type another one to reprint an older invoice."
+    },
+    {
+      "shot": "reprint-window",
+      "caption": "The Reprint window: the last SI No. of this terminal is filled in; type another to reprint an older invoice, or switch to Return for a return receipt."
+    },
+    {
+      "say": "Press Reprint"
+    },
+    {
+      "click": "Reprint",
+      "exact": true,
+      "wait": 1800
+    },
+    {
+      "shot": "reprint-copy",
+      "caption": "The copy prints exactly as the original, marked REPRINT."
+    },
+    {
+      "say": "Press Close"
+    },
+    {
+      "click": "Close",
+      "exact": true,
+      "wait": 700
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "11-reprint"
+}

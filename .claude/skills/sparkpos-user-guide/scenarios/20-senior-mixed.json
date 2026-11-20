@@ -1,0 +1,106 @@
+{
+  "title": "A senior's discount with the booklet",
+  "summary": "The discount screen shows what it takes off. The 5% on basic necessities needs the booklet; the senior gets the discount or wholesale, whichever is worth more.",
+  "steps": [
+    {
+      "scan": "2545553030000",
+      "wait": 600
+    },
+    {
+      "scan": "2545553025000",
+      "wait": 600
+    },
+    {
+      "scan": "4800088146166",
+      "wait": 600
+    },
+    {
+      "scan": "900000080961",
+      "wait": 600
+    },
+    {
+      "video": "start",
+      "clip": "senior-booklet",
+      "caption": "Senior discount, booklet and wholesale"
+    },
+    {
+      "say": "The meat is at the wholesale price. Press Discount"
+    },
+    {
+      "click": "Discount",
+      "exact": true,
+      "wait": 800
+    },
+    {
+      "say": "Pick SENIOR and type the ID number and name"
+    },
+    {
+      "click": "SENIOR",
+      "wait": 400
+    },
+    {
+      "fill": {
+        "label": "Control No."
+      },
+      "value": "SC-0001234"
+    },
+    {
+      "fill": {
+        "label": "Name"
+      },
+      "value": "Juan Dela Cruz"
+    },
+    {
+      "shot": "senior-no-booklet",
+      "caption": "The screen shows what the discount takes off. The booklet box starts unticked: without it, no 5% on basic necessities."
+    },
+    {
+      "say": "Tick the booklet once it's shown and written in"
+    },
+    {
+      "clickSelector": "input[type=checkbox]",
+      "wait": 600
+    },
+    {
+      "shot": "senior-booklet",
+      "caption": "Booklet ticked. The weekly cap box appears for when the booklet has less than the full 5% left."
+    },
+    {
+      "click": "Apply",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "shot": "senior-cart",
+      "caption": "The 5% is worth more than wholesale here, so the ribs go back to ₱330 with the senior discount (\"SENIOR instead of wholesale\"). The snack isn't discountable. The totals show each discount on its own line."
+    },
+    {
+      "say": "Pay as usual"
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "2000"
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "20-senior-mixed"
+}

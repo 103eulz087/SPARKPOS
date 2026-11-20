@@ -1,0 +1,58 @@
+{
+  "title": "A Buy 1 Take 1 sale",
+  "summary": "The promo applies by itself: the till says when one more is free, and the free item prints at its price less the promo.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "promo-sale",
+      "caption": "Buy 1 Take 1"
+    },
+    {
+      "say": "Scan one: the till says one more is free"
+    },
+    {
+      "scan": "748485200040",
+      "wait": 1000
+    },
+    {
+      "shot": "promo-hint",
+      "caption": "One can in the cart: \"B1T1 Sardines: add 1 more, free\"."
+    },
+    {
+      "say": "Scan the free one"
+    },
+    {
+      "scan": "748485200040",
+      "wait": 1000
+    },
+    {
+      "shot": "promo-free",
+      "caption": "Two cans: one is free. The line shows \"less B1T1 Sardines (1 free)\" and the total shows Promos."
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "50"
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "19-promo-sale"
+}

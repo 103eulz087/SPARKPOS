@@ -1,0 +1,66 @@
+{
+  "title": "Close the shift (Blind Close)",
+  "summary": "Count the drawer; the cashier never sees the totals.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "blind-close",
+      "caption": "Closing the shift"
+    },
+    {
+      "say": "Press Close shift"
+    },
+    {
+      "click": "Close shift",
+      "exact": true,
+      "wait": 900
+    },
+    {
+      "say": "Count each denomination in the drawer"
+    },
+    {
+      "fill": {
+        "label": "₱1000"
+      },
+      "value": "1"
+    },
+    {
+      "fill": {
+        "label": "₱500"
+      },
+      "value": "1"
+    },
+    {
+      "fill": {
+        "label": "₱100"
+      },
+      "value": "3"
+    },
+    {
+      "fill": {
+        "label": "₱20"
+      },
+      "value": "4"
+    },
+    {
+      "shot": "blind-close",
+      "caption": "Blind Close: the count per denomination. No sales totals are shown."
+    },
+    {
+      "say": "Press Submit count"
+    },
+    {
+      "click": "Submit count",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "shot": "shift-closed",
+      "caption": "Shift closed. Sign out, or run End of Day if this was the last shift."
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "07-blind-close"
+}

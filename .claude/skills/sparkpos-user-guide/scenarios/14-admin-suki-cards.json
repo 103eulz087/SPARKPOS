@@ -1,0 +1,78 @@
+{
+  "title": "Suki cards in Admin",
+  "summary": "Admin → Suki Cards: the earning rule, the card list, registering a card and each card's history.",
+  "steps": [
+    {
+      "goto": "/login",
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Username"
+      },
+      "value": "$GUIDE_ADMIN_USER",
+      "fast": true
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_ADMIN_PASSWORD",
+      "fast": true
+    },
+    {
+      "click": "Sign in",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "select": {
+        "label": "Branch"
+      },
+      "value": "$GUIDE_BRANCH"
+    },
+    {
+      "click": "Continue",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "click": "Suki Cards",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "shot": "admin-suki",
+      "caption": "Admin → Suki Cards: how points are earned (Admin only), and the registered cards with their balances."
+    },
+    {
+      "click": "Register a card",
+      "exact": true,
+      "wait": 700
+    },
+    {
+      "shot": "admin-register",
+      "caption": "Registering a card: tap it on the reader, then the customer's name and (optionally) mobile and email."
+    },
+    {
+      "click": "Cancel",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "click": "History",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "shot": "admin-history",
+      "caption": "A card's history: every point earned or taken back, with its invoice."
+    },
+    {
+      "click": "Close",
+      "exact": true,
+      "wait": 500
+    }
+  ],
+  "name": "14-admin-suki-cards"
+}

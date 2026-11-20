@@ -51,7 +51,8 @@ var apiKey = app.Configuration["ApiKey"] ?? "";
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
-    agent = "TabletPOS PrintAgent 2.0",
+    agent = "TabletPOS PrintAgent 2.1",
+    drawer = true,   // 2.1: POST /drawer opens the cash drawer without printing
     os = Environment.OSVersion.ToString(),
     polling = !string.IsNullOrEmpty(apiServerUrl)
 }));
@@ -60,6 +61,14 @@ app.MapPost("/print", async (PrintJob job, ILogger<Program> log) =>
 {
     var (ok, message) = await Dispatch.PrintAsync(job.Target, job.Text, log);
     return ok ? Results.Ok(new { printed = true, job.Target }) : Results.Problem(message);
+});
+
+// 2.1: open the cash drawer with no sale (Pos → Open drawer). The drawer hangs off the receipt
+// printer, which opens it on the ESC p pulse; nothing is printed.
+app.MapPost("/drawer", async (DrawerJob job, ILogger<Program> log) =>
+{
+    var (ok, message) = await Dispatch.KickAsync(job.Target, log);
+    return ok ? Results.Ok(new { opened = true, job.Target }) : Results.Problem(message);
 });
 
 if (!string.IsNullOrWhiteSpace(apiServerUrl))
@@ -94,16 +103,24 @@ static async Task PollLoopAsync(string apiServerUrl, string apiKey, ILogger log)
 }
 
 record PrintJob(string Text, string? Target);
+record DrawerJob(string? Target);
 record PolledJob(long PrintJobId, string? PrinterTarget, string JobText);
 
 /// The actual ESC/POS dispatch, shared by the inbound /print handler and the poll loop —
 /// same target schemes regardless of which path a job arrived through.
 static class Dispatch
 {
-    public static async Task<(bool Ok, string Message)> PrintAsync(string? target, string text, ILogger log)
+    public static Task<(bool Ok, string Message)> PrintAsync(string? target, string text, ILogger log) =>
+        SendAsync(target, BuildEscPos(text), text, log);
+
+    /// ESC p m t1 t2: a pulse on drawer pin 2 (m = 0) and pin 5 (m = 1), 50 ms on / 500 ms off. Both,
+    /// since drawers are wired to either; the one not wired does nothing.
+    public static Task<(bool Ok, string Message)> KickAsync(string? target, ILogger log) =>
+        SendAsync(target, [0x1B, 0x70, 0x00, 0x19, 0xFA, 0x1B, 0x70, 0x01, 0x19, 0xFA], "[cash drawer opened]", log);
+
+    static async Task<(bool Ok, string Message)> SendAsync(string? target, byte[] bytes, string text, ILogger log)
     {
         var resolvedTarget = string.IsNullOrWhiteSpace(target) ? "tcp://127.0.0.1:9100" : target;
-        var bytes = BuildEscPos(text);
 
         try
         {

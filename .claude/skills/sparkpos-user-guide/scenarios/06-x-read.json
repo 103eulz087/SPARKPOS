@@ -1,0 +1,27 @@
+{
+  "title": "X-Read",
+  "summary": "Print the shift's running totals; the shift stays open.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "x-read",
+      "caption": "X-Read"
+    },
+    {
+      "say": "Press X-Read. It prints and the shift stays open."
+    },
+    {
+      "click": "X-Read",
+      "exact": true,
+      "wait": 2500
+    },
+    {
+      "shot": "x-read",
+      "caption": "After the X-Read, selling continues."
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "06-x-read"
+}

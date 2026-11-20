@@ -5,3 +5,16 @@ dist/
 src/PosApi/wwwroot/
 *.user
 .DS_Store
+
+# Per-ERP test settings with passwords, filled in by hand (never committed)
+src/PosApi/appsettings.Enzo.json
+
+# Server / store PC packages made by scripts/publish.sh
+publish/
+
+# SSH deploy target (scripts/deploy.sh): server address and user, no password
+scripts/deploy.env
+
+# PrintAgent build output
+publish-printagent.zip
+publish-printagent/

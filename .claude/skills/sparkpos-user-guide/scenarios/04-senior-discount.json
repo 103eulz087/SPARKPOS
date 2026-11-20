@@ -1,0 +1,89 @@
+{
+  "title": "A Senior Citizen discount",
+  "summary": "Apply the SC discount with the ID number and name, then pay.",
+  "steps": [
+    {
+      "scan": "4800066120225",
+      "wait": 500,
+      "fast": true
+    },
+    {
+      "scan": "4800088115179",
+      "wait": 500,
+      "fast": true
+    },
+    {
+      "video": "start",
+      "clip": "senior-discount",
+      "caption": "Senior Citizen discount"
+    },
+    {
+      "say": "Press Discount"
+    },
+    {
+      "click": "Discount",
+      "exact": true,
+      "wait": 700
+    },
+    {
+      "say": "Pick SENIOR and type the ID number and name"
+    },
+    {
+      "click": "SENIOR",
+      "wait": 400
+    },
+    {
+      "fill": {
+        "label": "Control No."
+      },
+      "value": "SC-0001234"
+    },
+    {
+      "fill": {
+        "label": "Name"
+      },
+      "value": "Juan Dela Cruz"
+    },
+    {
+      "shot": "discount",
+      "caption": "The discount window: SENIOR picked, with the ID number and name."
+    },
+    {
+      "click": "Apply",
+      "exact": true,
+      "wait": 800
+    },
+    {
+      "shot": "discount-cart",
+      "caption": "The cart with the discount applied."
+    },
+    {
+      "say": "Pay as usual"
+    },
+    {
+      "click": "PAY",
+      "exact": true,
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Cash amount"
+      },
+      "value": "500"
+    },
+    {
+      "click": "Add cash",
+      "exact": true,
+      "wait": 500
+    },
+    {
+      "click": "Complete sale",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "04-senior-discount"
+}

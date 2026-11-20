@@ -1,0 +1,93 @@
+{
+  "title": "Senior / PWD discount rates in Admin",
+  "summary": "Admin → Discounts: the rate each item gets, by category and by the till's POS type.",
+  "steps": [
+    {
+      "goto": "/login",
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Username"
+      },
+      "value": "$GUIDE_ADMIN_USER",
+      "fast": true
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_ADMIN_PASSWORD",
+      "fast": true
+    },
+    {
+      "click": "Sign in",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "select": {
+        "label": "Branch"
+      },
+      "value": "$GUIDE_BRANCH"
+    },
+    {
+      "click": "Continue",
+      "exact": true,
+      "wait": 2000
+    },
+    {
+      "click": "Discounts",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "video": "start",
+      "clip": "admin-discounts",
+      "caption": "Where the senior / PWD rates come from"
+    },
+    {
+      "say": "Pick the discount type"
+    },
+    {
+      "select": {
+        "label": "Discount type"
+      },
+      "value": "SENIOR",
+      "wait": 800
+    },
+    {
+      "shot": "admin-discounts-categories",
+      "caption": "Every POS type: each category's own rule. At VROSS there are none, so the POS type decides."
+    },
+    {
+      "say": "Pick a POS type to see its own rate"
+    },
+    {
+      "select": {
+        "label": "POS type"
+      },
+      "value": "Retail",
+      "wait": 800
+    },
+    {
+      "shot": "admin-discounts-retail",
+      "caption": "Retail tills (the supermarket): SENIOR 5% with the VAT kept, on every discountable item (basic necessities)."
+    },
+    {
+      "select": {
+        "label": "POS type"
+      },
+      "value": "Restaurant",
+      "wait": 800
+    },
+    {
+      "shot": "admin-discounts-restaurant",
+      "caption": "Restaurant tills (the GRILLS): no rate of their own, so the default applies: 20%, VAT-exempt."
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "17-admin-discounts"
+}

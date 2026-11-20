@@ -20,7 +20,7 @@ public static class DbBootstrap
                 {
                     var pwd = r.Username switch
                     {
-                        "admin" => "admin123",
+                        "admin" or "sparkpos-admin" => "admin123",
                         "super" => "super123",
                         _ => "cashier123"
                     };

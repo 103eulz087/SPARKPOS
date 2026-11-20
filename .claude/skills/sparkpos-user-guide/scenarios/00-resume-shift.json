@@ -1,0 +1,40 @@
+{
+  "name": "00-resume-shift",
+  "title": "Sign in again to an open shift",
+  "summary": "Signing back in on the same device returns to the cashier's own open shift.",
+  "steps": [
+    {
+      "goto": "/login",
+      "storage": {
+        "pos_terminalId": "$GUIDE_TERMINAL_ID"
+      },
+      "wait": 500
+    },
+    {
+      "goto": "/login",
+      "wait": 600
+    },
+    {
+      "fill": {
+        "label": "Username"
+      },
+      "value": "$GUIDE_CASHIER_USER",
+      "fast": true
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_CASHIER_PASSWORD",
+      "fast": true
+    },
+    {
+      "click": "Sign in",
+      "exact": true
+    },
+    {
+      "waitText": "Current sale",
+      "wait": 1500
+    }
+  ]
+}

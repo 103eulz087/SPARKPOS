@@ -1,0 +1,68 @@
+{
+  "title": "Void a sale",
+  "summary": "Void a sale of the current shift by its SI number, with a supervisor's approval.",
+  "steps": [
+    {
+      "video": "start",
+      "clip": "void",
+      "caption": "Voiding a sale"
+    },
+    {
+      "say": "Open Void"
+    },
+    {
+      "click": "Void",
+      "exact": true,
+      "wait": 700
+    },
+    {
+      "say": "Type the SI number and press Find"
+    },
+    {
+      "fill": {
+        "label": "SI No."
+      },
+      "value": "@lastSI"
+    },
+    {
+      "click": "Find",
+      "exact": true,
+      "wait": 1200
+    },
+    {
+      "say": "The supervisor approves, and you give the reason"
+    },
+    {
+      "fill": {
+        "label": "Supervisor username"
+      },
+      "value": "$GUIDE_SUPERVISOR_USER"
+    },
+    {
+      "fill": {
+        "label": "Password"
+      },
+      "value": "$GUIDE_SUPERVISOR_PASSWORD",
+      "fast": true
+    },
+    {
+      "fill": {
+        "label": "Reason"
+      },
+      "value": "Customer changed their mind"
+    },
+    {
+      "shot": "void",
+      "caption": "Void: the sale found by its SI No., the supervisor's approval and the reason."
+    },
+    {
+      "click": "Void sale",
+      "exact": true,
+      "wait": 1500
+    },
+    {
+      "video": "stop"
+    }
+  ],
+  "name": "05-void"
+}

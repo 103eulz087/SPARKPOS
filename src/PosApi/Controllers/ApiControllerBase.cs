@@ -16,18 +16,23 @@ public abstract class ApiControllerBase(Db db) : ControllerBase
     protected string Branch => User.FindFirstValue("branch") ?? "";
     protected bool IsPrivileged => User.IsInRole("Admin") || User.IsInRole("Supervisor");
 
-    /// Verifies a Supervisor/Admin credential for override-gated actions
-    /// (void, price edit, End of Day). Returns the approver's UserId, or null.
-    protected static async Task<int?> VerifyApproverAsync(IDbConnection con, string? username, string? password)
+    /// Cashiers and Supervisors work only at the branch they signed in to (their own); an
+    /// Admin anywhere. Guards actions on another branch's sales, terminals and days.
+    protected bool CanActAt(string branchCode) => User.IsInRole("Admin") || Branch == branchCode;
+
+    /// Verifies a Supervisor/Admin credential for override-gated actions (void, return, price
+    /// change, End of Day) at branchCode: a Supervisor must belong to that branch, an Admin may
+    /// approve anywhere. Local and ERP users alike (UserAuth), and wrong passwords count toward
+    /// the same lockout as login. Returns the approver's UserId, or null.
+    protected static async Task<int?> VerifyApproverAsync(IDbConnection con, string? username, string? password,
+        string branchCode)
     {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)) return null;
-        var u = await con.QuerySingleOrDefaultAsync<dynamic>(
-            @"SELECT UserId, PasswordHash, PasswordSalt, Role FROM dbo.Users
-              WHERE Username = @u AND IsActive = 1 AND Role IN ('Supervisor','Admin')",
-            new { u = username });
-        if (u == null) return null;
-        return PasswordHasher.Verify((string)u.PasswordSalt, password, (string)u.PasswordHash)
-            ? (int)u.UserId : null;
+        var u = await UserAuth.FindAsync(con, username);
+        if (u == null || u.Role is not ("Supervisor" or "Admin")) return null;
+        if (await UserAuth.CheckAsync(con, u, password) != UserAuth.Outcome.Ok) return null;
+        if (u.Role == "Supervisor" && !(await UserAuth.BranchesAsync(con, u)).Contains(branchCode)) return null;
+        return u.UserId;
     }
 
     protected async Task AuditAsync(IDbConnection con, string action, string detail,

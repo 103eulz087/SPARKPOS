@@ -18,6 +18,16 @@ public class ShiftsController(Db db, PrintService printer, ReceiptBuilder receip
     public async Task<IActionResult> Open(OpenShiftRequest req)
     {
         using var con = Db.Open();
+        if (await TerminalDevices.RefusalAsync(con, req.TerminalId, Request.Headers[TerminalDevices.Header]) is string refused)
+            return BadRequest(new { message = refused });
+        // The shift is at the terminal's own branch, and (but for an Admin) the branch signed in at.
+        var termBranch = await con.ExecuteScalarAsync<string?>(
+            "SELECT BranchCode FROM dbo.Terminals WHERE TerminalId = @id AND IsActive = 1", new { id = req.TerminalId });
+        if (termBranch == null) return BadRequest(new { message = "This terminal doesn't exist or is switched off." });
+        if (!CanActAt(termBranch))
+            return StatusCode(403, new { message = $"This terminal belongs to branch {termBranch}. You're signed in at branch {Branch}." });
+        if (req.BranchCode != termBranch)
+            return StatusCode(403, new { message = $"This terminal belongs to branch {termBranch}, not {req.BranchCode}. Reload Cash Begin and try again." });
         try
         {
             await con.ExecuteAsync("dbo.sp_OpenShift", new
@@ -30,6 +40,37 @@ public class ShiftsController(Db db, PrintService printer, ReceiptBuilder receip
 
         await AuditAsync(con, "SHIFT_OPEN", $"Cash begin {req.CashBegin:N2}", req.BranchCode, req.TerminalId);
         return Ok(new { status = "opened", shiftUid = req.ShiftUid });
+    }
+
+    /// 39: the till opened the drawer with no sale (Pos → Open drawer). Logged once per DrawerOpenUid,
+    /// counted on the X-Read and Z-Read, and in the audit log. The drawer is already open, so this
+    /// never refuses a reason the till accepted; it only checks the shift is the caller's branch.
+    [HttpPost("{shiftUid:guid}/drawer-open")]
+    public async Task<IActionResult> DrawerOpen(Guid shiftUid, DrawerOpenRequest req)
+    {
+        var reason = (req.Reason ?? "").Trim();
+        if (reason.Length == 0) return BadRequest(new { message = "Give a reason for opening the drawer." });
+        using var con = Db.Open();
+        if (await con.ExecuteScalarAsync<int>("SELECT CASE WHEN OBJECT_ID('dbo.DrawerOpens', 'U') IS NULL THEN 0 ELSE 1 END") == 0)
+            return Ok(new { logged = false });   // a DB without 39: the till keeps working
+        var shift = await con.QuerySingleOrDefaultAsync(
+            "SELECT BranchCode, TerminalId FROM dbo.Shifts WHERE ShiftUid = @shiftUid", new { shiftUid });
+        if (shift == null) return BadRequest(new { message = "Shift not found." });
+        if (!CanActAt((string)shift.BranchCode)) return StatusCode(403, new { message = "That shift is at another branch." });
+        string? note = string.IsNullOrWhiteSpace(req.Note) ? null : req.Note.Trim()[..Math.Min(req.Note.Trim().Length, 200)];
+        var method = req.Method is "KICK" or "SLIP" ? req.Method : null;
+        var added = await con.ExecuteAsync(
+            @"INSERT INTO dbo.DrawerOpens (DrawerOpenUid, ShiftUid, BranchCode, TerminalId, UserId, ApprovedBy, Reason, Note, OpenedAt, Method)
+              SELECT @uid, @shiftUid, @b, @t, @u, @a, @reason, @note, @at, @method
+              WHERE NOT EXISTS (SELECT 1 FROM dbo.DrawerOpens WHERE DrawerOpenUid = @uid)",
+            new { uid = req.DrawerOpenUid, shiftUid, b = (string)shift.BranchCode, t = (int)shift.TerminalId, u = UserId,
+                  a = req.ApprovedBy, reason = reason[..Math.Min(reason.Length, 60)], note, at = req.OpenedAt, method });
+        if (added > 0)
+            await AuditAsync(con, "DRAWER_OPEN",
+                $"Drawer opened, no sale: {reason}{(note != null ? $" ({note})" : "")}" +
+                $"{(req.ApprovedBy != null ? $", approved by userId {req.ApprovedBy}" : "")}{(method == "SLIP" ? ", NO SALE slip" : "")}",
+                (string)shift.BranchCode, (int)shift.TerminalId);
+        return Ok(new { logged = true });
     }
 
     [HttpGet("current")]
@@ -134,6 +175,11 @@ public class ShiftsController(Db db, PrintService printer, ReceiptBuilder receip
         var denomsJson = JsonSerializer.Serialize(req.Denominations);
 
         using var con = Db.Open();
+        // A Supervisor may only force-close shifts at their own branch; an Admin anywhere.
+        var shiftBranch = await con.ExecuteScalarAsync<string?>(
+            "SELECT BranchCode FROM dbo.Shifts WHERE ShiftUid = @shiftUid", new { shiftUid });
+        if (shiftBranch == null) return NotFound(new { message = "Shift not found." });
+        if (!CanActAt(shiftBranch)) return StatusCode(403, new { message = $"This shift belongs to branch {shiftBranch}." });
         try
         {
             await con.ExecuteAsync("dbo.sp_ProcessBlindClose",
@@ -160,9 +206,22 @@ public class ShiftsController(Db db, PrintService printer, ReceiptBuilder receip
     }
 
     [HttpPost("{shiftUid:guid}/xread")]
-    public async Task<IActionResult> XRead(Guid shiftUid)
+    public async Task<IActionResult> XRead(Guid shiftUid,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] XReadRequest? req = null)
     {
         using var con = Db.Open();
+        // 35: a supervisor's approval when the branch (or this terminal) needs one
+        var shift = await con.QuerySingleOrDefaultAsync(
+            "SELECT BranchCode, TerminalId FROM dbo.Shifts WHERE ShiftUid = @shiftUid", new { shiftUid });
+        if (shift == null) return NotFound();
+        string shiftBranch = shift.BranchCode; int shiftTerminal = shift.TerminalId;
+        string approvedBy = "";
+        if (!IsPrivileged && await Approvals.RequiredAsync(con, shiftBranch, shiftTerminal, Approvals.XRead))
+        {
+            var id = await VerifyApproverAsync(con, req?.OverrideUsername, req?.OverridePassword, shiftBranch);
+            if (id == null) return StatusCode(403, new { message = $"X-Read needs a supervisor of branch {shiftBranch} (or an admin).", needsApproval = true });
+            approvedBy = await SalesController.ApprovedByText(con, id);
+        }
         var x = await con.QuerySingleOrDefaultAsync("dbo.sp_rpt_XRead",
             new { ShiftUid = shiftUid }, commandType: CommandType.StoredProcedure);
         if (x == null) return NotFound();
@@ -173,7 +232,7 @@ public class ShiftsController(Db db, PrintService printer, ReceiptBuilder receip
         var text = receipts.XRead(x, t.PaperWidth);
         await printer.EnqueueAsync(con, text, t.PrinterTarget, t.PrintAgentKey);
 
-        await AuditAsync(con, "XREAD", $"X-Read for shift {shiftUid}");
+        await AuditAsync(con, "XREAD", $"X-Read for shift {shiftUid}{approvedBy}");
 
         // Cashiers get counts only on screen; supervisors and admins get the figures.
         // receiptText is returned regardless of role — it's the same paper slip a
